@@ -1,5 +1,6 @@
 const defaultData = {
-  settings:{storeName:"Mi Negocio",currency:"$",tax:0,minStock:5},
+  settings:{storeName:"Mi Negocio",currency:"$",tax:0,minStock:5,address:"",phone:"",ticketFooter:"Gracias por su compra"},
+  users:[{id:1,username:"admin",password:"1234",name:"Administrador",role:"admin",active:true},{id:2,username:"cajero",password:"1234",name:"Cajero",role:"cashier",active:true}],
   products:[
     {id:1,name:"Café Premium",sku:"CAF-001",category:"Bebidas",price:2500,stock:24,min:5,emoji:"☕"},
     {id:2,name:"Agua Mineral",sku:"AGU-001",category:"Bebidas",price:1200,stock:40,min:8,emoji:"💧"},
@@ -18,6 +19,8 @@ const defaultData = {
   cash:{open:false,opening:0,expenses:[],movements:[]}
 };
 let data = JSON.parse(localStorage.getItem("novapos_data")) || structuredClone(defaultData);
+data.settings={...defaultData.settings,...(data.settings||{})};
+data.users=(data.users&&data.users.length)?data.users:structuredClone(defaultData.users);
 let cart = [];
 let session = JSON.parse(sessionStorage.getItem("novapos_session") || "null");
 let deferredPrompt;
@@ -29,15 +32,14 @@ function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show")
 function today(){return new Date().toLocaleString("es-CL")}
 
 function login(){
-  const u=$("loginUser").value.trim(), p=$("loginPass").value;
-  if((u==="admin"||u==="cajero")&&p==="1234"){
-    session={user:u,role:u==="admin"?"admin":"cashier"};sessionStorage.setItem("novapos_session",JSON.stringify(session));boot();
-  }else toast("Usuario o contraseña incorrectos");
+  const u=$("loginUser").value.trim(),p=$("loginPass").value;
+  const user=(data.users||[]).find(x=>x.username===u&&x.password===p&&x.active!==false);
+  if(user){session={user:user.username,name:user.name,role:user.role,userId:user.id};sessionStorage.setItem("novapos_session",JSON.stringify(session));boot()}else toast("Usuario o contraseña incorrectos")
 }
 function logout(){sessionStorage.removeItem("novapos_session");location.reload()}
 function boot(){
   $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");
-  $("sessionUser").textContent=session.user+" · "+(session.role==="admin"?"Administrador":"Cajero");
+  $("sessionUser").textContent=(session.name||session.user)+" · "+(session.role==="admin"?"Administrador":"Cajero");
   document.querySelectorAll(".admin-only").forEach(e=>e.style.display=session.role==="admin"?"":"none");
   $("dateNow").textContent=today();$("storeNameSide").textContent=data.settings.storeName;
   bindNav();renderAll();
@@ -97,7 +99,7 @@ function completeSale(){
   const sale={id:Date.now(),ticket:"T-"+String(data.sales.length+1).padStart(5,"0"),date:new Date().toISOString(),clientId:Number($("saleClient").value),payment:$("paymentMethod").value,subtotal:sub,discount:disc,total,items:cart.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price}))};
   data.sales.unshift(sale); const cl=data.clients.find(c=>c.id===sale.clientId);if(cl)cl.spent+=total;
   data.cash.movements.unshift({date:today(),type:"Venta",amount:total,note:sale.ticket});
-  save();cart=[];$("discount").value=0;renderAll();toast("Venta completada: "+sale.ticket);
+  save();cart=[];$("discount").value=0;renderAll();toast("Venta completada: "+sale.ticket);showReceiptOptions(sale.id);
 }
 function renderProductsTable(){
   $("productsTable").innerHTML=data.products.map(p=>`<tr><td>${p.emoji||"📦"} ${p.name}</td><td>${p.sku}</td><td>${p.category}</td><td>${money(p.price)}</td><td>${p.stock}</td>
@@ -154,13 +156,19 @@ function renderReports(){
   $("paymentBars").innerHTML=Object.entries(methods).map(([k,v])=>`<div><div class="bar-label"><span>${k}</span><strong>${money(v)}</strong></div><div class="bar-track"><div class="bar-fill" style="width:${v/max*100}%"></div></div></div>`).join("")||"<p>Sin ventas.</p>";
   const prod={};data.sales.forEach(s=>s.items.forEach(i=>prod[i.name]=(prod[i.name]||0)+i.qty));
   $("topProducts").innerHTML=Object.entries(prod).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,q],i)=>`<div class="rank-item"><span>${i+1}. ${n}</span><strong>${q} u.</strong></div>`).join("")||"<p>Sin datos.</p>";
-  $("salesTable").innerHTML=data.sales.map(s=>{const c=data.clients.find(x=>x.id===s.clientId);return `<tr><td>${new Date(s.date).toLocaleString("es-CL")}</td><td>${s.ticket}</td><td>${c?.name||"General"}</td><td>${s.payment}</td><td>${money(s.total)}</td></tr>`}).join("");
+  $("salesTable").innerHTML=data.sales.map(s=>{const c=data.clients.find(x=>x.id===s.clientId);return `<tr><td>${new Date(s.date).toLocaleString("es-CL")}</td><td>${s.ticket}</td><td>${c?.name||"General"}</td><td>${s.payment}</td><td>${money(s.total)}</td><td><button onclick="printReceipt(${s.id})">Imprimir</button></td></tr>`}).join("");
 }
 function kpis(items){return items.map(([l,v])=>`<div class="kpi"><span>${l}</span><strong>${v}</strong></div>`).join("")}
 function renderSettings(){
-  $("settingsStoreName").value=data.settings.storeName;$("settingsCurrency").value=data.settings.currency;$("settingsTax").value=data.settings.tax;$("settingsMinStock").value=data.settings.minStock;
+  $("settingsStoreName").value=data.settings.storeName||"";$("settingsAddress").value=data.settings.address||"";$("settingsPhone").value=data.settings.phone||"";$("settingsCurrency").value=data.settings.currency||"$";$("settingsTax").value=data.settings.tax||0;$("settingsMinStock").value=data.settings.minStock||5;$("settingsTicketFooter").value=data.settings.ticketFooter||"Gracias por su compra";renderUsers();
 }
-function saveSettings(){data.settings={storeName:$("settingsStoreName").value,currency:$("settingsCurrency").value||"$",tax:Number($("settingsTax").value),minStock:Number($("settingsMinStock").value)};save();renderAll();toast("Configuración guardada")}
+function saveSettings(){data.settings={...data.settings,storeName:$("settingsStoreName").value,address:$("settingsAddress").value,phone:$("settingsPhone").value,currency:$("settingsCurrency").value||"$",tax:Number($("settingsTax").value),minStock:Number($("settingsMinStock").value),ticketFooter:$("settingsTicketFooter").value};save();renderAll();toast("Configuración guardada")}
+function renderUsers(){if(!$("usersList"))return;$("usersList").innerHTML=(data.users||[]).map(u=>`<div class="user-card"><div><strong>${u.name}</strong><span>${u.username} · ${u.role==="admin"?"Administrador":"Cajero"} · ${u.active!==false?"Activo":"Inactivo"}</span></div><div class="table-actions"><button onclick="openUserModal(${u.id})">Editar</button>${u.id!==session.userId?`<button onclick="deleteUser(${u.id})">Eliminar</button>`:""}</div></div>`).join("")}
+function openUserModal(id){const u=id?(data.users||[]).find(x=>x.id===id):{name:"",username:"",password:"",role:"cashier",active:true};$("modalContent").innerHTML=`<h3>${id?"Editar":"Nuevo"} usuario</h3><div class="modal-form"><input id="uName" placeholder="Nombre" value="${u.name||""}"><input id="uUsername" placeholder="Usuario" value="${u.username||""}"><input id="uPassword" type="password" placeholder="Contraseña" value="${u.password||""}"><select id="uRole"><option value="admin" ${u.role==="admin"?"selected":""}>Administrador</option><option value="cashier" ${u.role==="cashier"?"selected":""}>Cajero</option></select><select id="uActive"><option value="true" ${u.active!==false?"selected":""}>Activo</option><option value="false" ${u.active===false?"selected":""}>Inactivo</option></select><button class="primary-btn" onclick="saveUser(${id||"null"})">Guardar</button></div>`;$("modal").classList.remove("hidden")}
+function saveUser(id){const name=$("uName").value.trim(),username=$("uUsername").value.trim(),password=$("uPassword").value;if(!name||!username||!password)return toast("Completa todos los datos");if((data.users||[]).some(u=>u.username===username&&u.id!==id))return toast("Ese usuario ya existe");const obj={id:id||Date.now(),name,username,password,role:$("uRole").value,active:$("uActive").value==="true"};if(id){Object.assign(data.users.find(x=>x.id===id),obj)}else data.users.push(obj);save();closeModal();renderAll();toast("Usuario guardado")}
+function deleteUser(id){const t=data.users.find(u=>u.id===id),admins=data.users.filter(u=>u.role==="admin");if(t?.role==="admin"&&admins.length<=1)return toast("Debe existir al menos un administrador");if(confirm("¿Eliminar usuario?")){data.users=data.users.filter(u=>u.id!==id);save();renderAll()}}
+function showReceiptOptions(id){$("modalContent").innerHTML=`<h3>Venta completada</h3><button class="primary-btn" onclick="printReceipt(${id})">Imprimir ticket</button>`;$("modal").classList.remove("hidden")}
+function printReceipt(id){const s=data.sales.find(x=>x.id===id);if(!s)return;const c=data.clients.find(x=>x.id===s.clientId);$("printReceipt").innerHTML=`<div class="receipt-inner"><h2>${data.settings.storeName}</h2><p>${data.settings.address||""}</p><p>${data.settings.phone||""}</p><hr><p>Ticket: ${s.ticket}</p><p>Fecha: ${new Date(s.date).toLocaleString("es-CL")}</p><p>Cliente: ${c?.name||"General"}</p><hr><table>${s.items.map(i=>`<tr><td>${i.qty} x ${i.name}</td><td>${money(i.qty*i.price)}</td></tr>`).join("")}</table><hr><p class="receipt-line"><span>Total</span><strong>${money(s.total)}</strong></p><p>Pago: ${s.payment}</p><hr><p class="receipt-footer">${data.settings.ticketFooter||"Gracias por su compra"}</p></div>`;closeModal();setTimeout(()=>window.print(),100)}
 function closeModal(){$("modal").classList.add("hidden")}
 function exportData(){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="novapos_respaldo.json";a.click()}
 function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{data=JSON.parse(r.result);save();renderAll();toast("Respaldo importado")}catch{toast("Archivo inválido")}};r.readAsText(f)}

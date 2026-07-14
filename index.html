@@ -162,7 +162,7 @@
         <div class="panel table-wrap">
           <h3>Historial de ventas</h3>
           <table>
-            <thead><tr><th>Fecha</th><th>Ticket</th><th>Cliente</th><th>Pago</th><th>Total</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Ticket</th><th>Cliente</th><th>Pago</th><th>Total</th><th>Acción</th></tr></thead>
             <tbody id="salesTable"></tbody>
           </table>
         </div>
@@ -173,15 +173,17 @@
           <div class="panel">
             <h3>Datos del negocio</h3>
             <label>Nombre<input id="settingsStoreName"></label>
+            <label>Dirección<input id="settingsAddress"></label>
+            <label>Teléfono<input id="settingsPhone"></label>
             <label>Moneda<input id="settingsCurrency" value="$"></label>
             <label>Impuesto (%)<input id="settingsTax" type="number" value="0"></label>
             <label>Stock mínimo global<input id="settingsMinStock" type="number" value="5"></label>
+            <label>Mensaje del ticket<input id="settingsTicketFooter"></label>
             <button class="primary-btn" onclick="saveSettings()">Guardar cambios</button>
           </div>
           <div class="panel">
-            <h3>Usuarios</h3>
-            <div class="user-card"><strong>Administrador</strong><span>admin / 1234</span></div>
-            <div class="user-card"><strong>Cajero</strong><span>cajero / 1234</span></div>
+            <div class="section-head compact"><div><h3>Usuarios</h3><p>Crea y modifica accesos.</p></div><button class="primary-btn" onclick="openUserModal()">+ Nuevo usuario</button></div>
+            <div id="usersList"></div>
             <h3>Respaldo</h3>
             <button class="secondary-btn" onclick="exportData()">Exportar datos JSON</button>
             <label class="file-btn">Importar respaldo<input type="file" accept=".json" onchange="importData(event)"></label>
@@ -199,6 +201,7 @@
     </div>
   </div>
 
+  <section id="printReceipt" class="print-receipt"></section>
   <script src="app.js"></script>
 </body>
 </html>

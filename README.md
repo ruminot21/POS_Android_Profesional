@@ -28,3 +28,6 @@ Sistema de punto de venta PWA para Android, tablet y PC.
 
 ## Importante
 Este proyecto usa almacenamiento local del navegador. Para uso comercial con varios dispositivos se recomienda conectar una base de datos y autenticación en servidor.
+
+
+Incluye impresión de tickets y administración completa de usuarios.
