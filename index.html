@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>NovaPOS</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+
+  <section id="loginView" class="auth-shell">
+    <div class="auth-card">
+      <div class="brand-mark">NP</div>
+      <h1>NovaPOS</h1>
+      <p>Sistema de punto de venta para Android, tablet y PC.</p>
+      <label>Usuario</label>
+      <input id="loginUser" value="admin" autocomplete="username">
+      <label>Contraseña</label>
+      <input id="loginPass" type="password" value="1234" autocomplete="current-password">
+      <button class="primary-btn" onclick="login()">Ingresar</button>
+      <small>Demo: admin / 1234 &nbsp; | &nbsp; cajero / 1234</small>
+    </div>
+  </section>
+
+  <div id="appView" class="app hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="logo-wrap">
+        <div class="brand-mark small">NP</div>
+        <div><strong>NovaPOS</strong><span id="storeNameSide">Mi Negocio</span></div>
+      </div>
+      <nav>
+        <button data-view="pos" class="nav-btn active">🛒 <span>Nueva venta</span></button>
+        <button data-view="products" class="nav-btn">📦 <span>Productos</span></button>
+        <button data-view="inventory" class="nav-btn">📊 <span>Inventario</span></button>
+        <button data-view="clients" class="nav-btn">👥 <span>Clientes</span></button>
+        <button data-view="cash" class="nav-btn">💵 <span>Caja</span></button>
+        <button data-view="reports" class="nav-btn">📈 <span>Reportes</span></button>
+        <button data-view="settings" class="nav-btn admin-only">⚙️ <span>Administración</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <span id="sessionUser"></span>
+        <button onclick="logout()">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn mobile-only" onclick="toggleSidebar()">☰</button>
+        <div>
+          <h2 id="viewTitle">Nueva venta</h2>
+          <span id="dateNow"></span>
+        </div>
+        <div class="top-actions">
+          <span class="status-dot"></span><span id="onlineText">En línea</span>
+          <button class="icon-btn" onclick="installApp()">⬇</button>
+        </div>
+      </header>
+
+      <section id="view-pos" class="view active">
+        <div class="pos-layout">
+          <div class="panel">
+            <div class="toolbar">
+              <input id="productSearch" placeholder="Buscar producto, SKU o escanear código..." oninput="renderProductGrid()">
+              <select id="categoryFilter" onchange="renderProductGrid()"></select>
+            </div>
+            <div id="productGrid" class="product-grid"></div>
+          </div>
+
+          <div class="panel cart-panel">
+            <div class="cart-head">
+              <h3>Venta actual</h3>
+              <button class="danger-link" onclick="clearCart()">Vaciar</button>
+            </div>
+            <div id="cartItems" class="cart-items"></div>
+            <div class="cart-summary">
+              <label>Cliente
+                <select id="saleClient"></select>
+              </label>
+              <div><span>Subtotal</span><strong id="subtotal">$0</strong></div>
+              <div><span>Descuento</span><input id="discount" type="number" min="0" value="0" onchange="renderCart()"></div>
+              <div class="total-row"><span>Total</span><strong id="total">$0</strong></div>
+              <label>Método de pago
+                <select id="paymentMethod">
+                  <option>Efectivo</option>
+                  <option>Tarjeta</option>
+                  <option>Transferencia</option>
+                  <option>Pago mixto</option>
+                </select>
+              </label>
+              <button class="primary-btn pay-btn" onclick="completeSale()">Cobrar venta</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-products" class="view">
+        <div class="section-head">
+          <div><h3>Catálogo de productos</h3><p>Agrega, edita o elimina productos.</p></div>
+          <button class="primary-btn admin-only" onclick="openProductModal()">+ Nuevo producto</button>
+        </div>
+        <div class="panel table-wrap">
+          <table>
+            <thead><tr><th>Producto</th><th>SKU</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead>
+            <tbody id="productsTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="view-inventory" class="view">
+        <div class="kpi-grid" id="inventoryKpis"></div>
+        <div class="panel table-wrap">
+          <table>
+            <thead><tr><th>Producto</th><th>Stock actual</th><th>Mínimo</th><th>Estado</th><th>Ajuste</th></tr></thead>
+            <tbody id="inventoryTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="view-clients" class="view">
+        <div class="section-head">
+          <div><h3>Clientes</h3><p>Base de clientes y compras acumuladas.</p></div>
+          <button class="primary-btn" onclick="openClientModal()">+ Nuevo cliente</button>
+        </div>
+        <div id="clientsGrid" class="client-grid"></div>
+      </section>
+
+      <section id="view-cash" class="view">
+        <div class="kpi-grid" id="cashKpis"></div>
+        <div class="two-cols">
+          <div class="panel">
+            <h3>Control de caja</h3>
+            <label>Monto de apertura<input id="openingAmount" type="number" min="0" value="0"></label>
+            <button class="secondary-btn" onclick="openCash()">Abrir caja</button>
+            <label>Registrar gasto<input id="expenseAmount" type="number" min="0" value="0"></label>
+            <input id="expenseNote" placeholder="Descripción del gasto">
+            <button class="secondary-btn" onclick="addExpense()">Registrar gasto</button>
+            <button class="danger-btn" onclick="closeCash()">Cerrar caja</button>
+          </div>
+          <div class="panel">
+            <h3>Movimientos recientes</h3>
+            <div id="cashMovements" class="timeline"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-reports" class="view">
+        <div class="kpi-grid" id="reportKpis"></div>
+        <div class="two-cols">
+          <div class="panel">
+            <h3>Ventas por método de pago</h3>
+            <div id="paymentBars" class="bars"></div>
+          </div>
+          <div class="panel">
+            <h3>Productos más vendidos</h3>
+            <div id="topProducts" class="ranking"></div>
+          </div>
+        </div>
+        <div class="panel table-wrap">
+          <h3>Historial de ventas</h3>
+          <table>
+            <thead><tr><th>Fecha</th><th>Ticket</th><th>Cliente</th><th>Pago</th><th>Total</th></tr></thead>
+            <tbody id="salesTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view">
+        <div class="two-cols">
+          <div class="panel">
+            <h3>Datos del negocio</h3>
+            <label>Nombre<input id="settingsStoreName"></label>
+            <label>Moneda<input id="settingsCurrency" value="$"></label>
+            <label>Impuesto (%)<input id="settingsTax" type="number" value="0"></label>
+            <label>Stock mínimo global<input id="settingsMinStock" type="number" value="5"></label>
+            <button class="primary-btn" onclick="saveSettings()">Guardar cambios</button>
+          </div>
+          <div class="panel">
+            <h3>Usuarios</h3>
+            <div class="user-card"><strong>Administrador</strong><span>admin / 1234</span></div>
+            <div class="user-card"><strong>Cajero</strong><span>cajero / 1234</span></div>
+            <h3>Respaldo</h3>
+            <button class="secondary-btn" onclick="exportData()">Exportar datos JSON</button>
+            <label class="file-btn">Importar respaldo<input type="file" accept=".json" onchange="importData(event)"></label>
+            <button class="danger-btn" onclick="resetDemo()">Restablecer demo</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeModal()">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
